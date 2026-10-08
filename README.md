@@ -241,8 +241,14 @@ The dashboard will be available at `http://localhost:8000/dashboard`.
 | Variable | Description | Default |
 |---|---|---|
 | `PORT` | Port the service runs on | `8000` |
-| `SECRET_KEY` | Internal security key | Randomly generated |
+| `SECRET_KEY` | Internal security key; keep it stable across deploys | Randomly generated and stored under `DATA_DIR` |
 | `RAILWAY_PUBLIC_DOMAIN` | Public Railway domain (auto-set) | `localhost` |
+| `DATA_DIR` | Persistent state, secret, and MTProxy binary directory; mount a Railway Volume here | `/data` |
+| `ADMIN_PASSWORD` | Optional initial admin password; set before first boot. If omitted, a secure random password is printed to deployment logs | Generated |
+| `CENTRAL_URL` | Optional external central service. Leave unset to disable central registration, announcements, and support integration | Disabled |
+| `MTPROTO_PORT_START` / `MTPROTO_PORT_END` | Inclusive start / exclusive end of the internal MTProto listener port range | `8500` / `8600` |
+
+**Railway note:** attach a persistent Volume mounted at `/data` so saved links, the panel secret, and the compiled MTProxy binary survive redeploys. `CENTRAL_URL` is opt-in because enabling it sends the panel password hash to that service during registration.
 
 <br/>
 
@@ -520,8 +526,14 @@ python main.py
 | متغیر | توضیح | پیش‌فرض |
 |---|---|---|
 | `PORT` | پورت اجرای سرویس | `8000` |
-| `SECRET_KEY` | کلید امنیتی داخلی | تولید تصادفی |
+| `SECRET_KEY` | کلید امنیتی داخلی؛ بین دیپلوی‌ها ثابت بماند | تولید و ذخیره در `DATA_DIR` |
 | `RAILWAY_PUBLIC_DOMAIN` | دامنه عمومی Railway (خودکار) | `localhost` |
+| `DATA_DIR` | محل ذخیره وضعیت پنل، کلید امنیتی و باینری MTProxy؛ یک Volume پایدار Railway روی آن وصل کنید | `/data` |
+| `ADMIN_PASSWORD` | رمز اولیه اختیاری؛ قبل از اولین اجرا تنظیم شود. اگر تنظیم نشود، رمز تصادفی امن در لاگ دیپلوی نمایش داده می‌شود | تولید تصادفی |
+| `CENTRAL_URL` | اتصال اختیاری به سرویس مرکزی؛ برای غیرفعال ماندن ثبت‌نام، اعلان‌ها و پشتیبانی، تنظیمش نکنید | غیرفعال |
+| `MTPROTO_PORT_START` / `MTPROTO_PORT_END` | شروع بازه پورت داخلی MTProto / انتهای بازه (غیرشامل) | `8500` / `8600` |
+
+**نکته Railway:** یک Volume پایدار با مسیر `/data` وصل کنید تا لینک‌ها، کلید امنیتی پنل و باینری کامپایل‌شده MTProxy بعد از دیپلوی مجدد باقی بمانند. با تنظیم `CENTRAL_URL`، هش رمز پنل هنگام ثبت‌نام به آن سرویس ارسال می‌شود؛ پس این اتصال عمداً اختیاری است.
 
 <br/>
 
