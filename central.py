@@ -3,7 +3,9 @@ import os
 import asyncio
 import httpx
 
-CENTRAL_URL = os.environ.get("CENTRAL_URL", "https://panel-rvg.arvin341az.workers.dev").rstrip("/")
+# اتصال به سرویس مرکزی اختیاری است؛ در صورت نیاز، CENTRAL_URL را صریحاً در متغیرهای محیطی تنظیم کنید.
+# این سرویس در ثبت‌نام، هش رمز پنل را دریافت می‌کند؛ بنابراین نباید بدون رضایت مالک فعال باشد.
+CENTRAL_URL = os.environ.get("CENTRAL_URL", "").strip().rstrip("/")
 
 
 async def register_instance():
