@@ -265,7 +265,32 @@ SESSION_TTL = 60 * 60 * 24 * 7
 def hash_password(pw: str) -> str:
     return hashlib.sha256(f"{pw}{CONFIG['secret']}".encode()).hexdigest()
 
-AUTH = {"password_hash": hash_password(os.environ.get("ADMIN_PASSWORD", "123456"))}
+def _initial_admin_password() -> str:
+    """از رمز پیش‌فرض عمومی استفاده نکن؛ رمز امنِ بار اول را فقط وقتی state قبلی ندارد بساز."""
+    configured = os.environ.get("ADMIN_PASSWORD")
+    if configured:
+        return configured
+
+    # اگر state معتبر و دارای هش رمز وجود دارد، load_state آن را جایگزین می‌کند.
+    # در این حالت رمز جدیدی لاگ نمی‌کنیم تا رمز اشتباه به کاربر نشان داده نشود.
+    try:
+        if DATA_FILE.exists():
+            saved = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+            if saved.get("password_hash"):
+                return secrets.token_urlsafe(32)
+    except Exception as exc:
+        logger.warning("خواندن رمز ذخیره‌شده هنگام مقداردهی اولیه ناموفق بود: %s", exc)
+
+    generated = secrets.token_urlsafe(18)
+    logger.warning(
+        "ADMIN_PASSWORD تنظیم نشده است. رمز اولیه‌ی امن پنل فقط برای راه‌اندازی اول ساخته شد: %s "
+        "— آن را ذخیره کنید و سپس ADMIN_PASSWORD را در Railway تنظیم کنید.",
+        generated,
+    )
+    return generated
+
+
+AUTH = {"password_hash": hash_password(_initial_admin_password())}
 SESSIONS: dict = {}
 SESSIONS_LOCK = asyncio.Lock()
 
