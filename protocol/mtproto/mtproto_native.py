@@ -329,7 +329,7 @@ def generate_mtproto_web_link(host: str, port: int, secret: str,
 
 
 async def get_stats(uuid: str) -> dict:
-    """آمار واقعی از خود باینری (--http-stats روی 127.0.0.1:2398).
+    """آمار واقعی از خود باینری (--http-stats روی پورت داخلی اختصاصی هر instance).
     مهم‌ترین فیلد: total_special_connections = تعداد اتصال‌های ورودی کلاینت.
     اگه این صفر بمونه یعنی واقعاً هیچ پکتی نمی‌رسه؛ اگه بالا بره یعنی پکت
     می‌رسه و مشکل جای دیگه‌ست (مثلاً handshake/سکرت)."""
