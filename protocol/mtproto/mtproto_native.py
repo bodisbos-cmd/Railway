@@ -60,6 +60,7 @@ MAX_CONN = int(os.environ.get("MTP_MAX_CONN", 60000))
 _instances: dict = {}
 _instances_lock = asyncio.Lock()
 _used_ports: set[int] = set()
+_used_stats_ports: set[int] = set()
 
 _usage_callback: Optional[Callable[[str, int], Awaitable[bool]]] = None
 _build_lock = asyncio.Lock()
@@ -234,6 +235,15 @@ def _port_free(port: int) -> bool:
             return False
 
 
+def _allocate_stats_port() -> int | None:
+    """هر MTProxy باید پورت stats جدا داشته باشد؛ پورت ثابت باعث تداخل instanceها می‌شود."""
+    for candidate in range(20000, 30000):
+        if candidate not in _used_stats_ports and _port_free(candidate):
+            _used_stats_ports.add(candidate)
+            return candidate
+    return None
+
+
 async def allocate_port_async(preferred: int | None = None, force: bool = False, uuid: str = "") -> int | None:
     tag = uuid[:8] if uuid else "?"
     if preferred is not None:
@@ -312,7 +322,7 @@ async def get_stats(uuid: str) -> dict:
         return {"error": "instance اجرا نیست"}
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
-            r = await client.get("http://127.0.0.1:2398/stats")
+            r = await client.get(f"http://127.0.0.1:{inst.get('stats_port', 2398)}/stats")
             raw = r.text
     except Exception as exc:
         return {"error": f"دریافت stats ناموفق: {exc}"}
@@ -409,17 +419,21 @@ async def start_instance(
         internal_ip, external_ip = await _detect_ips()
         aes_pwd = await _ensure_aes_pwd_file()
 
+        stats_port = _allocate_stats_port()
+        if stats_port is None:
+            _used_ports.discard(port)
+            raise RuntimeError("پورت آزاد برای آمار داخلی MTProto پیدا نشد")
+
         cmd_base = [
             str(BIN_PATH),
-            "-p", "2398",           # پورت کنترل داخلی (هرچی، فقط باید آزاد باشه per-process)
+            "-p", str(stats_port),  # پورت آمار داخلی؛ برای هر instance جداست
             "-H", str(port),        # پورت واقعی MTProto که کلاینت بهش وصل می‌شه
             "-C", str(MAX_CONN),
             "--aes-pwd", str(aes_pwd),
             "-u", "root",
             str(BACKEND_CONF),
             "--allow-skip-dh",
-            "--http-stats",         # /stats روی 127.0.0.1:2398 — تنها راه قطعی برای
-                                    # دیدن این‌که واقعاً چند اتصال ورودی رسیده
+            "--http-stats",         # /stats روی پورت داخلی اختصاصی همین instance
             "--nat-info", f"{internal_ip}:{external_ip}",
         ]
 
@@ -486,6 +500,7 @@ async def start_instance(
 
         if proc is None:
             _used_ports.discard(port)
+            _used_stats_ports.discard(stats_port)
             raise RuntimeError("mtproto-proxy در هیچ‌کدام از حالت‌های IPv6/IPv4 بالا نیامد")
 
         _used_ports.add(port)
@@ -493,6 +508,7 @@ async def start_instance(
             "proc": proc, "port": port, "secret": secret, "domain": domain,
             "ad_tag": ad_tag, "external_ip": external_ip,
             "logs": [], "started_at": time.time(), "used_bytes_reported": 0,
+            "stats_port": stats_port,
         }
         _instances[uuid] = inst
         inst["log_task"] = asyncio.create_task(_stream_process_output(uuid, proc, inst))
@@ -512,6 +528,7 @@ async def _watch_process(uuid: str, proc: asyncio.subprocess.Process):
         cur = _instances.get(uuid)
         if cur and cur["proc"] is proc:
             _used_ports.discard(cur["port"])
+            _used_stats_ports.discard(cur.get("stats_port"))
             t = cur.get("log_task")
             if t:
                 t.cancel()
@@ -534,6 +551,7 @@ async def stop_instance(uuid: str):
     if not inst:
         return
     _used_ports.discard(inst["port"])
+    _used_stats_ports.discard(inst.get("stats_port"))
     t = inst.get("log_task")
     if t:
         t.cancel()
