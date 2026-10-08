@@ -91,16 +91,32 @@ async def ensure_binary() -> bool:
         logger.info("MTP: باینری mtproto-proxy پیدا نشد، شروع build از سورس رسمی تلگرام...")
         MTP_DIR.mkdir(parents=True, exist_ok=True)
 
-        # پکیج‌های لازم برای build (فقط یک‌بار روی هر container)
-        try:
-            subprocess.run(
-                ["bash", "-c",
-                 "apt-get update -qq && apt-get install -y -qq "
-                 "build-essential libssl-dev zlib1g-dev git curl >/dev/null 2>&1"],
-                timeout=180, capture_output=True,
-            )
-        except Exception as exc:
-            logger.warning(f"MTP: نصب build-deps کامل موفق نبود (ممکنه از قبل نصب باشن): {exc}")
+        # روی Dockerfile این ابزارها هنگام build نصب می‌شوند؛ فقط در محیط‌های فاقد آن‌ها
+        # سراغ apt-get می‌رویم تا cold startهای Railway بی‌جهت چند دقیقه معطل نشوند.
+        required_tools = ("git", "make", "cc")
+        missing_tools = [tool for tool in required_tools if shutil.which(tool) is None]
+        if missing_tools:
+            try:
+                if shutil.which("apt-get") is None:
+                    logger.error("MTP: ابزارهای build موجود نیستند و apt-get هم در دسترس نیست: %s",
+                                 ", ".join(missing_tools))
+                    return False
+                install = subprocess.run(
+                    ["bash", "-c",
+                     "apt-get update -qq && apt-get install -y -qq "
+                     "build-essential libssl-dev zlib1g-dev git curl >/dev/null 2>&1"],
+                    timeout=180, capture_output=True, text=True,
+                )
+                if install.returncode != 0:
+                    logger.warning("MTP: نصب build-deps با apt-get ناموفق بود: %s",
+                                   (install.stderr or "")[-500:])
+            except Exception as exc:
+                logger.warning(f"MTP: نصب build-deps موفق نبود: {exc}")
+
+        missing_tools = [tool for tool in required_tools if shutil.which(tool) is None]
+        if missing_tools:
+            logger.error("MTP: ابزارهای لازم برای build پیدا نشدند: %s", ", ".join(missing_tools))
+            return False
 
         try:
             if SRC_DIR.exists():
