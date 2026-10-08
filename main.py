@@ -284,7 +284,7 @@ def _initial_admin_password() -> str:
     generated = secrets.token_urlsafe(18)
     logger.warning(
         "ADMIN_PASSWORD تنظیم نشده است. رمز اولیه‌ی امن پنل فقط برای راه‌اندازی اول ساخته شد: %s "
-        "— آن را ذخیره کنید و سپس ADMIN_PASSWORD را در Railway تنظیم کنید.",
+        "— آن را ذخیره کنید و پس از ورود، از بخش تغییر رمز پنل، رمز دلخواهتان را تعیین کنید.",
         generated,
     )
     return generated
